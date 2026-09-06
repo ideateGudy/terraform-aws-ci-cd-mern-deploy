@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+  API_ASG_NAME: ${{ vars.API_ASG_NAME }}
+  SSM_PREFIX: ${{ vars.SSM_PREFIX }}
+
+permissions:
+  id-token: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$ECR_REPOSITORY:latest" ./server
+          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Store API runtime secrets in SSM
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          CLIENT_URL: ${{ vars.CLIENT_URL }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          put_secret() {
+            aws ssm put-parameter --name "$SSM_PREFIX/$1" --type SecureString --value "$2" --overwrite >/dev/null
+          }
+          put_secret MONGODB_URI "$MONGODB_URI"
+          put_secret ACCESS_TOKEN_SECRET "$ACCESS_TOKEN_SECRET"
+          put_secret REFRESH_TOKEN_SECRET "$REFRESH_TOKEN_SECRET"
+          put_secret CLIENT_URL "$CLIENT_URL"
+          put_secret PUBLIC_URL "$PUBLIC_URL"
+
+      - name: Deploy API to ASG through SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name AWS-RunShellScript \
+            --targets "Key=tag:Name,Values=$API_ASG_NAME" \
+            --parameters commands='["/usr/local/bin/little-list-run.sh"]' \
+            --comment "Deploy $GITHUB_SHA" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $COMMAND_ID"
+
+      - name: Build frontend
+        run: |
+          cd client
+          npm ci
+          npm run build
+
+      - name: Publish frontend to S3
+        run: aws s3 sync client/dist "s3://$FRONTEND_BUCKET" --delete
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths '/*'
