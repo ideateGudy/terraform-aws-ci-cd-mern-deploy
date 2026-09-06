@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-sans: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+    :root {
+        font-family: var(--font-display);
+        color: #27352c;
+        background: #f4f0e8;
+        --app-background: radial-gradient(circle at 80% 10%, #e5eee4 0, transparent 32%), #f4f0e8;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+    }
+
+    html.dark {
+        color-scheme: dark;
+        --app-background: radial-gradient(circle at 80% 10%, #26382e 0, transparent 32%), #17211b;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        min-width: 320px;
+    }
+
+    button,
+    input {
+        font: inherit;
+    }
+
+    button {
+        cursor: pointer;
+    }
+}
