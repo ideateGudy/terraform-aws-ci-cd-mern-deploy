@@ -1,0 +1,11 @@
+aws_region     = "us-east-1"
+project_name   = "little-list"
+environment    = "production"
+domain_name    = ""
+route53_zone_id = ""
+github_org     = "your-github-org"
+github_repo    = "your-repository"
+api_instance_type    = "t3.micro"
+api_min_size         = 2
+api_max_size         = 4
+api_desired_capacity = 2

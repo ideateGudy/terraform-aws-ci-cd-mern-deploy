@@ -1,0 +1,48 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee /var/log/${project_name}-bootstrap.log | logger -t ${project_name}-bootstrap -s 2>/dev/console) 2>&1
+
+dnf update -y
+dnf install -y docker awscli
+enable_cmd="systemctl enable --now docker"
+$enable_cmd
+usermod -aG docker ec2-user
+
+aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_repository_url}
+docker pull ${ecr_repository_url}:latest || true
+
+cat >/usr/local/bin/${project_name}-run.sh <<'RUN_SCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+REGION="${aws_region}"
+REPOSITORY="${ecr_repository_url}"
+PREFIX="${ssm_prefix}"
+
+get_parameter() {
+  aws ssm get-parameter --region "$REGION" --name "$PREFIX/$1" --with-decryption --query 'Parameter.Value' --output text
+}
+
+MONGODB_URI=$(get_parameter MONGODB_URI)
+ACCESS_TOKEN_SECRET=$(get_parameter ACCESS_TOKEN_SECRET)
+REFRESH_TOKEN_SECRET=$(get_parameter REFRESH_TOKEN_SECRET)
+CLIENT_URL=$(get_parameter CLIENT_URL)
+PUBLIC_URL=$(get_parameter PUBLIC_URL)
+
+aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REPOSITORY"
+docker pull "$REPOSITORY:latest"
+docker rm -f ${project_name}-api || true
+docker run --name ${project_name}-api --restart unless-stopped -d -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  -e MONGODB_URI="$MONGODB_URI" \
+  -e ACCESS_TOKEN_SECRET="$ACCESS_TOKEN_SECRET" \
+  -e REFRESH_TOKEN_SECRET="$REFRESH_TOKEN_SECRET" \
+  -e CLIENT_URL="$CLIENT_URL" \
+  -e PUBLIC_URL="$PUBLIC_URL" \
+  "$REPOSITORY:latest"
+RUN_SCRIPT
+
+chmod +x /usr/local/bin/${project_name}-run.sh
+/usr/local/bin/${project_name}-run.sh || true
