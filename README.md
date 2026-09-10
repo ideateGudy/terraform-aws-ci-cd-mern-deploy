@@ -131,12 +131,19 @@ When both the **Client (React SPA)** and **Server (Express API)** share the exac
 
 ### 🔑 Environment Variable Definitions (`CLIENT_URL` vs `SERVER_URL`)
 
-- **`CLIENT_URL`** (`https://ideategudy.tech`):
-  - **Purpose**: Used by Express for **CORS origin validation** (`cors({ origin: CLIENT_URL, credentials: true })`).
-  - Tells the backend to accept cross-origin / same-domain HTTP requests & cookies coming from the React SPA.
-- **`SERVER_URL`** (`https://ideategudy.tech`):
-  - **Purpose**: Used by the Express backend as the **Shortener Base URL** to generate complete short links (`${SERVER_URL}/s/${shortCode}`).
-  - When a user creates a short URL, the server outputs `https://ideategudy.tech/s/abc1234`. Since `/s/*` is routed by CloudFront to the Express backend, clicking the link hits Express and performs the HTTP redirect!
+Because **CloudFront** handles single-domain path-based routing (`/` -> React SPA, `/api/*` & `/s/*` -> Express API), both `CLIENT_URL` and `SERVER_URL` should point to the exact same public domain face:
+
+#### Scenario A: Using Custom Domain / Subdomain (e.g. `dev.ideategudy.tech`)
+- **`CLIENT_URL`**: `https://dev.ideategudy.tech`
+  - Used by Express for **CORS origin validation** (`cors({ origin: CLIENT_URL, credentials: true })`).
+- **`SERVER_URL`**: `https://dev.ideategudy.tech`
+  - Used by Express as the **Shortener Base URL** to generate complete short links (e.g. `https://dev.ideategudy.tech/s/abc1234`). Clicking the short link hits CloudFront's `/s/*` rule, which routes directly to Express!
+
+#### Scenario B: Using Default CloudFront Domain (No Custom Domain)
+- **`CLIENT_URL`**: `https://d123456789.cloudfront.net` *(from `terraform output cloudfront_domain_name`)*
+- **`SERVER_URL`**: `https://d123456789.cloudfront.net`
+
+> ⚠️ **Note**: Do **NOT** set `SERVER_URL` to your raw ALB DNS name (`http://little-list-alb-1234.eu-north-1.elb.amazonaws.com`). Doing so would bypass SSL/HTTPS and break CORS cookies! CloudFront acts as the unified SSL reverse proxy for both frontend and backend.
 
 ## 🔄 Multi-Environment Support (`dev` vs `prod`)
 

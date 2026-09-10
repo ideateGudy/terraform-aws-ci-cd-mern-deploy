@@ -99,8 +99,8 @@ Go to your repository on GitHub: **Settings** -> **Secrets and variables** -> **
 | `ECR_REPOSITORY` | ECR repository name | `little-list-api` |
 | `API_ASG_NAME` | Name of the EC2 Auto Scaling Group | `little-list-api-asg` |
 | `SSM_PREFIX` | Prefix path for AWS SSM Parameter Store | `/little-list/prod` |
-| `CLIENT_URL` | Frontend public domain URL | `https://app.example.com` |
-| `SERVER_URL` | Backend API URL (ALB or custom domain) | `https://api.example.com` |
+| `CLIENT_URL` | Frontend public URL for CORS validation | `https://dev.ideategudy.tech` (or `https://d1234.cloudfront.net`) |
+| `SERVER_URL` | Backend URL for Shortener Base URL | `https://dev.ideategudy.tech` (or `https://d1234.cloudfront.net`) |
 
 ### 2.2 Repository Secrets (**Secrets** tab)
 
