@@ -5,14 +5,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
-  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
-  API_ASG_NAME: ${{ vars.API_ASG_NAME }}
-  SSM_PREFIX: ${{ vars.SSM_PREFIX }}
+# Cancel redundant in-progress workflow runs on new pushes to main
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
+
+# Explicit minimal permissions for GitHub Actions OIDC security
 permissions:
   id-token: write
   contents: read
@@ -22,38 +23,89 @@ defaults:
     shell: bash
 
 jobs:
-  deploy:
+  # =======================================================
+  # 1. Frontend Deployment Job (S3 + CloudFront)
+  # =======================================================
+  deploy-frontend:
+    name: Deploy Frontend (S3 + CloudFront)
     runs-on: ubuntu-latest
+    env:
+      FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Build frontend SPA
+        run: |
+          cd client
+          npm ci
+          npm run build
+
+      - name: Configure AWS credentials (OIDC Keyless)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to ECR
+      - name: Publish static assets to S3
+        run: aws s3 sync client/dist "s3://$FRONTEND_BUCKET" --delete
+
+      - name: Invalidate CloudFront CDN cache
+        run: aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths '/*'
+
+  # =======================================================
+  # 2. Backend Deployment Job (ECR + EC2 Auto Scaling Group)
+  # =======================================================
+  deploy-backend:
+    name: Deploy Backend (ECR + EC2 ASG)
+    runs-on: ubuntu-latest
+    env:
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      API_ASG_NAME: ${{ vars.API_ASG_NAME }}
+      SSM_PREFIX: ${{ vars.SSM_PREFIX }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC Keyless)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push API image
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$ECR_REPOSITORY:latest" ./server
-          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Store API runtime secrets in SSM
+      - name: Build and push Express API Docker image (with GHA Caching)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sync runtime secrets to AWS SSM Parameter Store
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
           REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
           CLIENT_URL: ${{ vars.CLIENT_URL }}
-          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          SERVER_URL: ${{ vars.SERVER_URL }}
         run: |
           put_secret() {
             aws ssm put-parameter --name "$SSM_PREFIX/$1" --type SecureString --value "$2" --overwrite >/dev/null
@@ -62,9 +114,9 @@ jobs:
           put_secret ACCESS_TOKEN_SECRET "$ACCESS_TOKEN_SECRET"
           put_secret REFRESH_TOKEN_SECRET "$REFRESH_TOKEN_SECRET"
           put_secret CLIENT_URL "$CLIENT_URL"
-          put_secret PUBLIC_URL "$PUBLIC_URL"
+          put_secret SERVER_URL "$SERVER_URL"
 
-      - name: Deploy API to ASG through SSM
+      - name: Trigger & verify container update across ASG fleet via SSM
         run: |
           COMMAND_ID=$(aws ssm send-command \
             --document-name AWS-RunShellScript \
@@ -72,16 +124,12 @@ jobs:
             --parameters commands='["/usr/local/bin/little-list-run.sh"]' \
             --comment "Deploy $GITHUB_SHA" \
             --query Command.CommandId --output text)
-          echo "SSM command: $COMMAND_ID"
+          echo "Sent SSM Command ID: $COMMAND_ID"
 
-      - name: Build frontend
-        run: |
-          cd client
-          npm ci
-          npm run build
+          echo "Waiting for SSM command execution across EC2 fleet..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --error-signal Success \
+            || { echo "SSM deployment failed or timed out!"; exit 1; }
 
-      - name: Publish frontend to S3
-        run: aws s3 sync client/dist "s3://$FRONTEND_BUCKET" --delete
-
-      - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths '/*'
+          echo "Deployment successfully executed across all ASG instances!"

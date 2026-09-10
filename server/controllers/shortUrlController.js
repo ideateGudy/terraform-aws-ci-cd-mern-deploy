@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import ShortUrl from "../models/ShortUrl.js";
+import { SERVER_URL } from "../config/env.js";
 
 const isHttpUrl = (value) => {
     try {
@@ -13,11 +14,11 @@ const isHttpUrl = (value) => {
 
 const createCode = () => randomBytes(4).toString("base64url");
 
-const getPublicUrl = (req) => process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
+const getServerUrl = (req) => SERVER_URL || `${req.protocol}://${req.get("host")}`;
 
 const serializeShortUrl = (shortUrl, req) => ({
     ...shortUrl.toJSON(),
-    shortUrl: `${getPublicUrl(req)}/s/${shortUrl.shortCode}`,
+    shortUrl: `${getServerUrl(req)}/s/${shortUrl.shortCode}`,
 });
 
 export const listShortUrls = async (req, res, next) => {

@@ -3,11 +3,11 @@ set -euo pipefail
 
 exec > >(tee /var/log/${project_name}-bootstrap.log | logger -t ${project_name}-bootstrap -s 2>/dev/console) 2>&1
 
-dnf update -y
-dnf install -y docker awscli
-enable_cmd="systemctl enable --now docker"
-$enable_cmd
-usermod -aG docker ec2-user
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y docker.io awscli curl unzip
+systemctl enable --now docker
+usermod -aG docker ubuntu || true
 
 aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin ${ecr_repository_url}
 docker pull ${ecr_repository_url}:latest || true
@@ -28,7 +28,7 @@ MONGODB_URI=$(get_parameter MONGODB_URI)
 ACCESS_TOKEN_SECRET=$(get_parameter ACCESS_TOKEN_SECRET)
 REFRESH_TOKEN_SECRET=$(get_parameter REFRESH_TOKEN_SECRET)
 CLIENT_URL=$(get_parameter CLIENT_URL)
-PUBLIC_URL=$(get_parameter PUBLIC_URL)
+SERVER_URL=$(get_parameter SERVER_URL)
 
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REPOSITORY"
 docker pull "$REPOSITORY:latest"
@@ -40,7 +40,7 @@ docker run --name ${project_name}-api --restart unless-stopped -d -p 3000:3000 \
   -e ACCESS_TOKEN_SECRET="$ACCESS_TOKEN_SECRET" \
   -e REFRESH_TOKEN_SECRET="$REFRESH_TOKEN_SECRET" \
   -e CLIENT_URL="$CLIENT_URL" \
-  -e PUBLIC_URL="$PUBLIC_URL" \
+  -e SERVER_URL="$SERVER_URL" \
   "$REPOSITORY:latest"
 RUN_SCRIPT
 

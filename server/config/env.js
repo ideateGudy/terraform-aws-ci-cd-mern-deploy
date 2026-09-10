@@ -2,6 +2,7 @@ import "dotenv/config";
 
 export const PORT = process.env.PORT || 3000;
 export const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+export const SERVER_URL = process.env.SERVER_URL || process.env.SERVER_URL || `http://localhost:${PORT}`;
 export const MONGODB_URI = process.env.MONGODB_URI?.trim();
 export const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 export const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;

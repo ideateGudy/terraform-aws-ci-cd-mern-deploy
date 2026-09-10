@@ -1,11 +1,86 @@
-aws_region     = "us-east-1"
-project_name   = "little-list"
-environment    = "production"
-domain_name    = ""
+# ==============================================================================
+# TERRAFORM VARIABLE CONFIGURATION FILE (EXAMPLE)
+# ==============================================================================
+# Copy this file to `terraform.tfvars` (or `dev.tfvars` / `prod.tfvars`)
+# Command: cp terraform.tfvars.example terraform.tfvars
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. AWS REGION
+# ------------------------------------------------------------------------------
+# Description : The primary AWS region where your infrastructure will be built.
+# Is it a must? : YES (Required).
+# Possible values: "eu-north-1", "us-east-1", "eu-west-1", "ap-southeast-1"
+aws_region = "eu-north-1"
+
+# ------------------------------------------------------------------------------
+# 2. PROJECT NAME
+# ------------------------------------------------------------------------------
+# Description : Short slug used as a prefix/suffix for resource naming (S3, ECR, ASG, ALB).
+# Is it a must? : YES (Required).
+# Possible values: "little-list", "myapp", "ecommerce-api"
+project_name = "little-list"
+
+# ------------------------------------------------------------------------------
+# 3. ENVIRONMENT (dev vs production)
+# ------------------------------------------------------------------------------
+# Description : Defines the target stage (e.g. dev, staging, production).
+# Is it a must? : YES (Required).
+# Possible values: "production", "dev", "staging"
+environment = "dev"
+
+# ------------------------------------------------------------------------------
+# 4. CUSTOM DOMAIN NAME (e.g., Namecheap)
+# ------------------------------------------------------------------------------
+# Description : Your custom domain name purchased from Namecheap or another registrar.
+# Is it a must? : OPTIONAL. Leave empty ("") if you don't have a domain yet.
+#                 CloudFront will provide a default *.cloudfront.net HTTPS URL if empty.
+# Possible values: "dev.ideategudy.tech", "ideategudy.tech", ""
+domain_name = "dev.ideategudy.tech"
+
+# ------------------------------------------------------------------------------
+# 5. AUTOMATIC ROUTE 53 HOSTED ZONE CREATION
+# ------------------------------------------------------------------------------
+# Description : Automatically creates an AWS Route 53 DNS Hosted Zone for domain_name.
+# Is it a must? : OPTIONAL (Defaults to true if domain_name is set).
+# How to use it: Set to true if you want AWS to manage DNS records automatically.
+#                 Then copy the 4 output nameservers into Namecheap Custom DNS!
+# Possible values: true, false
+create_route53_zone = true
+
+# ------------------------------------------------------------------------------
+# 6. EXISTING ROUTE 53 HOSTED ZONE ID (If create_route53_zone = false)
+# ------------------------------------------------------------------------------
+# Description : ID of a pre-existing Route 53 Hosted Zone.
+# Possible values: "Z0123456789ABCDEF", ""
 route53_zone_id = ""
-github_org     = "your-github-org"
-github_repo    = "your-repository"
-api_instance_type    = "t3.micro"
-api_min_size         = 2
-api_max_size         = 4
-api_desired_capacity = 2
+
+# ------------------------------------------------------------------------------
+# 7. GITHUB ORGANIZATION / ACCOUNT USERNAME
+# ------------------------------------------------------------------------------
+# Description : Your GitHub username or organization name that owns the repository.
+github_org = "ideategudy"
+
+# ------------------------------------------------------------------------------
+# 8. GITHUB REPOSITORY NAME
+# ------------------------------------------------------------------------------
+# Description : The name of your GitHub repository.
+github_repo = "little-list"
+
+# ------------------------------------------------------------------------------
+# 9. EC2 INSTANCE TYPE FOR API FLEET
+# ------------------------------------------------------------------------------
+# Description : The EC2 server hardware size used in the Auto Scaling Group.
+api_instance_type = "t3.micro"
+
+# ------------------------------------------------------------------------------
+# 10. AUTO SCALING GROUP CAPACITY (MIN / MAX / DESIRED)
+# ------------------------------------------------------------------------------
+api_min_size         = 1
+api_max_size         = 2
+api_desired_capacity = 1
+
+# ------------------------------------------------------------------------------
+# 11. SSH KEY NAME (OPTIONAL)
+# ------------------------------------------------------------------------------
+ssh_key_name = null

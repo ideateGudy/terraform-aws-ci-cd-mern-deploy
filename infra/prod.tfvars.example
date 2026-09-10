@@ -1,0 +1,16 @@
+# Production Environment Configuration (AWS Free Tier Optimized)
+aws_region           = "eu-north-1"
+project_name         = "little-list"
+environment          = "production"
+
+domain_name          = "ideategudy.tech"
+create_route53_zone  = true
+
+github_org           = "ideategudy"
+github_repo          = "little-list"
+
+# EC2 & Fleet Sizing (750 hours/month Free Tier eligible)
+api_instance_type    = "t3.micro"
+api_min_size         = 1
+api_max_size         = 2
+api_desired_capacity = 1

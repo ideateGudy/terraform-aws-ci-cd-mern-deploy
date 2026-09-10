@@ -1,14 +1,19 @@
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
+
+
 import authRoutes from "./routes/authRoutes.js";
 import shortUrlRoutes from "./routes/shortUrlRoutes.js";
 import diaryRoutes from "./routes/diaryRoutes.js";
 import { redirectShortUrl } from "./controllers/shortUrlController.js";
 import { connectDatabase } from "./config/database.js";
-import { CLIENT_URL, PORT, validateEnvironment } from "./config/env.js";
+import { CLIENT_URL, PORT, validateEnvironment, SERVER_URL } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
+
+app.use(helmet());
 
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
@@ -24,7 +29,7 @@ app.use(errorHandler);
 const startServer = async () => {
     validateEnvironment();
     await connectDatabase();
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`Server running on ${SERVER_URL}`));
 };
 
 startServer().catch((error) => {
