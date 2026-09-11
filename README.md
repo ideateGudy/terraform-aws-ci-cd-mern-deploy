@@ -131,13 +131,23 @@ GitHub Actions assumes a temporal AWS IAM Role dynamically per pipeline run usin
 
 ---
 
-## 🌐 Custom Domain (`ideategudy.tech`) & SSL Configuration
+## 🌐 Custom Domain & Subdomain Setup (`dev.ideategudy.tech`)
 
 Primary infrastructure resources (VPC, EC2, ASG, ALB, ECR, S3) are deployed in `eu-north-1` (Stockholm). HTTPS is terminated at the CloudFront CDN level using **AWS Certificate Manager (ACM)** in `us-east-1` (required by CloudFront for global edge distributions).
 
-### Connecting Namecheap Domain / Subdomain (`dev.ideategudy.tech`) to AWS:
+### Why Use a Subdomain (`dev.ideategudy.tech`)?
 
-1. In `infra/dev.tfvars` (or `prod.tfvars`):
+Instead of pointing the root/apex domain (`ideategudy.tech`) directly to this environment, we configured a dedicated subdomain (`dev.ideategudy.tech`) for several key reasons:
+
+1. **Environment Isolation (`dev` vs `prod`)**: Using subdomains allows us to run isolated development (`dev.ideategudy.tech`) and production (`ideategudy.tech` or `app.ideategudy.tech`) infrastructure in separate Terraform workspaces without DNS conflicts.
+2. **Subdomain NS Delegation in Namecheap**: By adding custom `NS` records for `dev.ideategudy.tech` in Namecheap, we delegate only the `dev` subdomain DNS resolution to AWS Route 53 while keeping the parent apex domain (`ideategudy.tech`) managed at Namecheap.
+3. **Multi-Environment Testing**: It enables continuous testing of AWS infrastructure changes (CloudFront, ALB, ASG) on a real HTTPS domain without risking downtime for main production domain traffic.
+
+---
+
+### Connecting Namecheap Subdomain (`dev.ideategudy.tech`) to AWS:
+
+1. In `infra/dev.tfvars`:
    ```hcl
    domain_name         = "dev.ideategudy.tech"
    create_route53_zone = true
@@ -152,12 +162,13 @@ Primary infrastructure resources (VPC, EC2, ASG, ALB, ECR, S3) are deployed in `
      "ns-847.awsdns-41.net"
    ]
    ```
-4. Log into **Namecheap** -> **Domain List** -> **Manage `ideategudy.tech`** -> **Advanced DNS** (or **Custom DNS** / **NS Records**) and paste the 4 Route 53 Nameservers for your subdomain `dev.ideategudy.tech`.
+4. Log into **Namecheap** -> **Domain List** -> **Manage `ideategudy.tech`** -> **Advanced DNS** -> Add 4 `NS` Records for Host `dev` pointing to the Route 53 Nameservers.
 
 ![Namecheap Subdomain NS Records Screenshot](./img/namecheap-ns-setup.png)
-> *Figure: Configured NS records in Namecheap pointing `dev.ideategudy.tech` to AWS Route 53.*
+> *Figure: Configured NS records in Namecheap delegating `dev.ideategudy.tech` to AWS Route 53.*
 
 5. In minutes, free auto-renewing SSL is active across `https://dev.ideategudy.tech`!
+
 
 
 ---
