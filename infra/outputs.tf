@@ -47,3 +47,9 @@ output "acm_validation_records" {
   description = "CNAME records for ACM DNS validation (if using Namecheap Advanced DNS instead of Route 53)"
   value       = module.frontend.acm_validation_records
 }
+
+output "backend_alb_dns_name" {
+  description = "DNS name / URL of the backend Application Load Balancer"
+  value       = module.backend.alb_dns_name
+}
+
