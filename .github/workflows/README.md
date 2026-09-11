@@ -16,7 +16,7 @@ The workflow (`deploy.yml`) is designed using **2026 GitHub Actions best practic
        [deploy-frontend Job]               [deploy-backend Job]
                   │                                   │
        1. Checkout repository              1. Checkout repository
-       2. Setup Node.js 20                 2. OIDC Keyless Auth to AWS
+       2. Setup Node.js 22                 2. OIDC Keyless Auth to AWS
        3. Build React SPA (client/dist)    3. Login to ECR
        4. OIDC Keyless Auth to AWS         4. Setup Docker Buildx + GHA Cache
        5. Sync dist/ to S3 bucket          5. Build & Push image (SHA + latest)
@@ -52,7 +52,7 @@ The workflow (`deploy.yml`) is designed using **2026 GitHub Actions best practic
 - **Environment Requirements**: `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `AWS_ROLE_ARN`, `AWS_REGION`.
 - **Steps**:
   1. `actions/checkout@v4`: Clones the source repository.
-  2. `actions/setup-node@v4`: Initializes Node.js 20 with `npm` dependency caching based on `client/package-lock.json`.
+  2. `actions/setup-node@v4`: Initializes Node.js 22 with `npm` dependency caching based on `client/package-lock.json`.
   3. `Build frontend SPA`: Runs `npm ci` and `npm run build` in `client/`, outputting static files into `client/dist`.
   4. `Configure AWS credentials`: Assumes the IAM OIDC Role (`AWS_ROLE_ARN`).
   5. `Publish static assets to S3`: Synchronizes `client/dist` to `s3://$FRONTEND_BUCKET` using `--delete` to prune removed files.
