@@ -13,7 +13,7 @@ Whether you are a beginner looking to understand modern cloud infrastructure or 
 Before diving in, here is what you will need if you want to replicate this deployment architecture:
 
 1. **AWS Account**: An active AWS account with permissions to manage EC2, S3, CloudFront, ECR, IAM, and Route 53.
-2. **Terraform CLI**: Installed on your machine (`>= 1.5.0`).
+2. **Terraform CLI**: Installed on your machine (`>= 1.16.2`).
 3. **AWS CLI**: Installed and configured with your credentials (`aws configure`).
 4. **Docker**: Installed locally for testing container builds.
 5. **Node.js & npm**: Installed locally for building the frontend.
@@ -124,14 +124,14 @@ GitHub Actions assumes a temporal AWS IAM Role dynamically per pipeline run usin
 
 Primary infrastructure resources (VPC, EC2, ASG, ALB, ECR, S3) are deployed in `eu-north-1` (Stockholm). HTTPS is terminated at the CloudFront CDN level using **AWS Certificate Manager (ACM)** in `us-east-1` (required by CloudFront for global edge distributions).
 
-### Connecting Namecheap Domain to AWS:
+### Connecting Namecheap Domain / Subdomain (`dev.ideategudy.tech`) to AWS:
 
-1. In `infra/terraform.tfvars`:
+1. In `infra/dev.tfvars` (or `prod.tfvars`):
    ```hcl
-   domain_name         = "ideategudy.tech"
+   domain_name         = "dev.ideategudy.tech"
    create_route53_zone = true
    ```
-2. Run `terraform apply`.
+2. Run `terraform apply --var-file="dev.tfvars"`.
 3. Copy the 4 output nameservers from Terraform:
    ```hcl
    route53_nameservers = [
@@ -141,14 +141,21 @@ Primary infrastructure resources (VPC, EC2, ASG, ALB, ECR, S3) are deployed in `
      "ns-847.awsdns-41.net"
    ]
    ```
-4. Log into **Namecheap** -> **Manage `ideategudy.tech`** -> **Nameservers** -> Select **Custom DNS** and paste the Route 53 nameservers.
-5. In minutes, free auto-renewing SSL is active across `https://ideategudy.tech`!
+4. Log into **Namecheap** -> **Domain List** -> **Manage `ideategudy.tech`** -> **Advanced DNS** (or **Custom DNS** / **NS Records**) and paste the 4 Route 53 Nameservers for your subdomain `dev.ideategudy.tech`.
+
+![Namecheap Subdomain NS Records Screenshot](./img/namecheap-ns-setup.png)
+> *Figure: Configured NS records in Namecheap pointing `dev.ideategudy.tech` to AWS Route 53.*
+
+5. In minutes, free auto-renewing SSL is active across `https://dev.ideategudy.tech`!
+
 
 ---
 
 ## ⚡ Automated CI/CD Pipeline (`deploy.yml`)
 
 When code is pushed to `main`, GitHub Actions triggers `.github/workflows/deploy.yml` which executes **two parallel jobs**:
+
+> 💡 **Note for Beginners**: You do **not** need to manually build the React frontend or Docker container on your local computer before pushing. GitHub Actions automatically compiles the React production bundle and builds/pushes the Docker image in the cloud during the pipeline run!
 
 1. **`deploy-frontend`**:
    - Builds Vite/React bundle.
@@ -172,16 +179,25 @@ When code is pushed to `main`, GitHub Actions triggers `.github/workflows/deploy
 cd infra
 
 # Copy example variables
-cp terraform.tfvars.example terraform.tfvars
+cp dev.tfvars.example dev.tfvars
 
-# Edit values in terraform.tfvars (domain_name, github_org, github_repo)
+# Edit values in dev.tfvars (domain_name, github_org, github_repo)
 terraform init
-terraform plan
-terraform apply
+terraform plan --var-file="dev.tfvars"
+terraform apply --var-file="dev.tfvars" --auto-approve
 ```
+
+![Terraform Apply Output Screenshot](./img/terraform-apply-output.png)
+> *Figure 1: Successful `terraform apply` showing outputs for S3, CloudFront, ECR, and ALB.*
 
 ### Step 2: Configure GitHub Repository Secrets & Variables
 In your GitHub repo under **Settings -> Secrets and variables -> Actions**:
+
+> 💡 *Tip: You can retrieve all your Terraform output values anytime by running `terraform output` inside the `infra/` folder.*
+
+![GitHub Repository Actions Secrets and Variables](./img/github-secrets-variables.png)
+> *Figure 2: GitHub Actions repository variables and secrets configured for OIDC deployment.*
+
 
 - **Secrets**:
   - `MONGODB_URI`: MongoDB connection string
@@ -207,6 +223,40 @@ git commit -m "Deploy production architecture to AWS"
 git push origin main
 ```
 
+![GitHub Actions Successful CI/CD Pipeline Run](./img/github-actions-pipeline.png)
+> *Figure 3: Parallel CI/CD execution for `deploy-frontend` and `deploy-backend` jobs.*
+
+
+---
+
+## 🎉 Live Application Demo
+
+![Live Deployed Application Screenshot](./img/live-app-screenshot.png)
+> *Figure 4: The live full-stack application running on `https://dev.ideategudy.tech` served securely over CloudFront HTTPS.*
+
+---
+
+## ⚡ Key Benefits of This Architecture
+
+Choosing this cloud setup over monolithic single-server hosting provides several high-value production advantages:
+
+1. **🚀 Zero-Downtime & Ultra-Fast Global Delivery**: 
+   By hosting the React SPA on **Amazon S3 + CloudFront**, static assets are cached globally at edge locations close to users. CloudFront delivers lightning-fast page loads while shielding your backend EC2 instances from static file requests.
+
+2. **💰 Extreme Cost Optimization (Free Tier Friendly)**:
+   - **S3 & CloudFront**: Nearly zero cost for static SPA bandwidth.
+   - **EC2 Auto Scaling**: Scales t3.micro instances based on CPU utilization and traffic demands without paying for oversized idle instances.
+   - **Amazon ECR Lifecycle Policies**: Configured to auto-expire old image tags, keeping container storage well under free-tier limits.
+
+3. **🔒 Enterprise-Grade Keyless Security (OIDC)**:
+   By avoiding permanent `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` credentials in GitHub Secrets, your deployment security posture is greatly hardened. GitHub Actions requests temporary, short-lived IAM credentials via OIDC scoped strictly to the resources it needs.
+
+4. **🛡️ High Availability & Auto-Healing**:
+   The **Application Load Balancer (ALB)** and **Auto Scaling Group (ASG)** automatically monitor EC2 instance health. If an instance crashes or fails health checks, ASG automatically terminates it and launches a fresh, containerized replacement instance seamlessly.
+
+5. **📦 Modular & Multi-Environment Ready**:
+   The modular Terraform layout (`vpc`, `backend`, `frontend`, `github_oidc`) makes it effortless to spin up separate `dev`, `staging`, and `production` environments in minutes with zero manual AWS Console clicking.
+
 ---
 
 ## 🎯 Conclusion
@@ -214,6 +264,7 @@ git push origin main
 Building cloud infrastructure using modular Terraform modules and automated keyless CI/CD pipelines transforms complex AWS operations into predictable, repeatable, and maintainable software engineering workflows.
 
 By decoupling the architecture into public VPC subnets, S3/CloudFront SPA hosting, and auto-scaling EC2 container fleets, the application stays fast, cost-optimized, and resilient.
+
 
 ---
 
@@ -223,6 +274,6 @@ If you found this guide helpful or have any questions about AWS, Terraform, Dock
 
 - 🐙 **GitHub**: [github.com/ideateGudy](https://github.com/ideateGudy)
 - 💼 **LinkedIn**: [linkedin.com/in/ideategudy](https://www.linkedin.com/in/ideategudy/)
-- 🌐 **Portfolio & Projects**: [dev.ideategudy.tech](https://dev.ideategudy.tech)
 
 *Drop a reaction on Dev.to and feel free to star the GitHub repository! Happy coding!* 🚀
+
