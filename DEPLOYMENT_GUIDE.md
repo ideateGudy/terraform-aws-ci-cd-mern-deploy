@@ -152,16 +152,20 @@ The pipeline executes two parallel/sequential stages:
 ## 🛠️ Step 5: Verification & Health Checks
 
 ### 1. Backend API Health Check
-Test the Application Load Balancer / API domain endpoint:
+Test the CloudFront or ALB health endpoint:
 ```bash
-curl -i https://<your-api-domain-or-alb-dns>/health
+curl -i https://dev.ideategudy.tech/healthz
 ```
-*Expected response:* `HTTP/1.1 200 OK`
+*Expected response:* `HTTP/1.1 200 OK` with `{"status":"ok"}`.
 
-### 2. Frontend Accessibility Check
-Navigate to the CloudFront distribution domain or custom domain in browser:
+### 2. Testing API Subpaths vs Root API
+- **Valid API Subpath**: `https://dev.ideategudy.tech/api/auth/profile` -> returns `401 Unauthorized` / API JSON response.
+- **Bare GET `/api` or `/api/`**: Plain GET to root `/api` returns 404 / React SPA fallback because API routes are defined on specific subpaths (`/api/auth/*`, `/api/diary/*`, `/api/shortener/*`).
+
+### 3. Frontend Accessibility Check
+Navigate to your domain in the browser:
 ```bash
-https://<your-cloudfront-domain-or-custom-domain>
+https://dev.ideategudy.tech
 ```
 
 ### 3. Verify Container Deployment via AWS SSM

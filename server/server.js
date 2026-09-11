@@ -18,8 +18,7 @@ app.use(helmet());
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
 
-app.get("/", (_req, res) => res.status(200).json({ message: "Welcome to the Diary App" }));
-app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+app.get(["/", "/api", "/healthz"], (_req, res) => res.status(200).json({ message: "ok" }));
 app.use("/api/auth", authRoutes);
 app.get("/s/:shortCode", redirectShortUrl);
 app.use("/api/shortener", shortUrlRoutes);
