@@ -30,6 +30,7 @@ locals {
 # --- S3 Bucket for Static Frontend ---
 resource "aws_s3_bucket" "frontend" {
   bucket = "${local.name}-${var.account_id}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
