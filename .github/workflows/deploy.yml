@@ -126,18 +126,30 @@ jobs:
 
       - name: Trigger & verify container update across ASG fleet via SSM
         run: |
+          # Use dynamic script runner based on active project naming or fallback
           COMMAND_ID=$(aws ssm send-command \
             --document-name AWS-RunShellScript \
             --targets "Key=tag:Name,Values=$API_ASG_NAME" \
-            --parameters commands='["/usr/local/bin/little-list-run.sh"]' \
+            --parameters commands='[
+              "if [ -f /usr/local/bin/'"$API_ASG_NAME"'-run.sh ]; then /usr/local/bin/'"$API_ASG_NAME"'-run.sh; elif [ -f /usr/local/bin/mern-deploy-run.sh ]; then /usr/local/bin/mern-deploy-run.sh; else /usr/local/bin/little-list-run.sh; fi"
+            ]' \
             --comment "Deploy $GITHUB_SHA" \
             --query Command.CommandId --output text)
           echo "Sent SSM Command ID: $COMMAND_ID"
 
           echo "Waiting for SSM command execution across EC2 fleet..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --error-signal Success \
-            || { echo "SSM deployment failed or timed out!"; exit 1; }
-
-          echo "Deployment successfully executed across all ASG instances!"
+          for i in {1..30}; do
+            STATUS=$(aws ssm list-commands --command-id "$COMMAND_ID" --query "Commands[0].Status" --output text)
+            echo "Current Command Status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then
+              echo "Deployment successfully executed across all ASG instances!"
+              exit 0
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "SSM deployment finished with status: $STATUS"
+              aws ssm list-command-invocations --command-id "$COMMAND_ID" --details --output json
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "SSM deployment timed out waiting for instances."
+          exit 1

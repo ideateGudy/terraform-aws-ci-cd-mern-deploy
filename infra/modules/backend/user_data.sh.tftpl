@@ -5,7 +5,16 @@ exec > >(tee /var/log/${project_name}-bootstrap.log | logger -t ${project_name}-
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y docker.io awscli curl unzip
+apt-get install -y docker.io curl unzip
+
+# Install AWS CLI v2 official package (Ubuntu 24.04 Noble deprecated apt awscli)
+if ! command -v aws &>/dev/null; then
+  curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
 systemctl enable --now docker
 usermod -aG docker ubuntu || true
 
