@@ -1,12 +1,23 @@
-# How I Built and Deployed a Production-Grade MERN App on AWS using Modular Terraform and Keyless GitHub Actions OIDC 🚀
+# How I Built and Deployed a Full-Stack MERN Application on AWS using Modular Terraform and Keyless GitHub Actions OIDC 🚀
 
-Deploying a full-stack web application into production is often one of the most daunting steps for modern developers. You build a great MERN (MongoDB, Express, React, Node.js) app locally, but when it comes to hosting it securely on cloud infrastructure with HTTPS, custom domains, and automated deployment pipelines, things can quickly get overwhelming.
+Deploying a full-stack web application into production is often one of the most daunting steps for modern developers. You build a complete application locally, but when it comes to hosting it securely on cloud infrastructure with HTTPS, custom domains, and automated deployment pipelines, things can quickly get overwhelming.
 
-In this post, I will break down **how I architected, provisioned, and deployed a production-grade MERN stack app ("Little List") on AWS** using **Terraform** for Infrastructure as Code (IaC), **Amazon S3 + CloudFront** for the frontend SPA, **Docker + EC2 Auto Scaling + ALB** for the backend API, and **Keyless GitHub Actions OIDC** for CI/CD.
+In this post, I will walk you through **how I built and deployed an end-to-end full-stack MERN application ("Little List")**—from the frontend user interface and Express REST API to provisioning production AWS cloud infrastructure with **Terraform** and automating deployments with **Keyless GitHub Actions OIDC**.
 
-Whether you are a beginner looking to understand modern cloud infrastructure or an experienced engineer reviewing multi-environment Terraform design, this guide has something for you!
+Whether you are a beginner looking to understand full-stack architecture & cloud deployment or an experienced engineer reviewing multi-environment Terraform design, this guide covers the entire end-to-end workflow!
 
 ---
+
+## 📱 What is "Little List"? (Application Overview)
+
+"Little List" is a full-stack personal productivity and management application built from scratch:
+
+- **React SPA Frontend (Vite)**: Modern, responsive UI with state management, JWT auth flows, interactive diary logging, and custom URL shortener interfaces.
+- **Node.js & Express API Backend**: Modular REST API with secure authentication, refresh tokens, MongoDB integration, and route validation.
+- **MongoDB Database**: Persistent storage for users, diary entries, and shortened link analytics.
+
+---
+
 
 ## 📋 Prerequisites
 
