@@ -88,7 +88,13 @@ resource "aws_iam_role_policy" "github_actions" {
       },
       {
         Effect   = "Allow"
-        Action   = ["ssm:PutParameter", "ssm:SendCommand", "ssm:GetCommandInvocation"]
+        Action   = [
+          "ssm:PutParameter",
+          "ssm:SendCommand",
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommands",
+          "ssm:ListCommandInvocations"
+        ]
         Resource = "*"
       },
       {
