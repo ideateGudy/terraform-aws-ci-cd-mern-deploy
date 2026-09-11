@@ -290,6 +290,15 @@ By decoupling the architecture into public VPC subnets, S3/CloudFront SPA hostin
 
 ---
 
+## 🔗 Related Documentation & Alternative Architecture
+
+Looking for a simpler, single-server EC2 deployment pattern? Check out the companion article:
+
+👉 **[How I Built and Deployed a Full-Stack MERN App on AWS EC2 using Docker Compose, Terraform, and GitHub Actions](https://dev.to/ideategudy/how-i-built-and-deployed-a-full-stack-mern-app-on-aws-ec2-using-docker-compose-terraform-and-23k8)**
+> *This guide covers deploying the full-stack MERN application on a single AWS EC2 instance using Docker Compose, Nginx reverse proxy, Certbot (Let's Encrypt SSL), and SSH-based GitHub Actions CI/CD.*
+
+---
+
 ## 🤝 Connect & Follow Me
 
 If you found this guide helpful or have any questions about AWS, Terraform, Docker, or MERN stack architecture, let us connect!
