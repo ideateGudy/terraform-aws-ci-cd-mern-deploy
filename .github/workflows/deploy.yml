@@ -29,6 +29,9 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend (S3 + CloudFront)
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
@@ -54,6 +57,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Publish static assets to S3
         run: aws s3 sync client/dist "s3://$FRONTEND_BUCKET" --delete
@@ -67,6 +71,9 @@ jobs:
   deploy-backend:
     name: Deploy Backend (ECR + EC2 ASG)
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
       API_ASG_NAME: ${{ vars.API_ASG_NAME }}
@@ -80,6 +87,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Login to Amazon ECR
         id: ecr
