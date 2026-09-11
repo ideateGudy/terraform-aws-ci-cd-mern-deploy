@@ -87,7 +87,7 @@ resource "aws_cloudfront_distribution" "app" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = ["/api/*", "/s/*", "/healthz"]
+    for_each = ["/api", "/api/*", "/s/*", "/healthz"]
     content {
       path_pattern           = ordered_cache_behavior.value
       target_origin_id       = "alb-api"

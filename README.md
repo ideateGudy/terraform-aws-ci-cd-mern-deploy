@@ -123,9 +123,11 @@ When both the **Client (React SPA)** and **Server (Express API)** share the exac
 | `/` | `s3-frontend` | S3 Bucket | Serves React SPA `index.html` |
 | `/login`, `/dashboard`, `/shortener` | `s3-frontend` | S3 Bucket | Serves SPA bundle (Client-side Router handles view) |
 | `/assets/*` | `s3-frontend` | S3 Bucket | Serves static JS, CSS, and images |
-| `/api/*` | `alb-api` | EC2 Express Backend | Forwards to ALB -> Express (`/api/auth`, `/api/diary`, `/api/shortener`) |
-| `/s/*` | `alb-api` | EC2 Express Backend | Forwards to ALB -> Express `redirectShortUrl` (e.g. `https://ideategudy.tech/s/abc1234`) |
+| `/api`, `/api/*` | `alb-api` | EC2 Express Backend | Forwards requests to Express API (`/api`, `/api/auth/*`, `/api/diary/*`, `/api/shortener/*`) |
+| `/s/*` | `alb-api` | EC2 Express Backend | Forwards to ALB -> Express `redirectShortUrl` (e.g. `https://dev.ideategudy.tech/s/abc1234`) |
 | `/healthz` | `alb-api` | EC2 Express Backend | ALB & CloudFront health check endpoint |
+
+> ℹ️ **Note on GET `/api` or `/api/`**: Plain `GET` requests to bare `/api` return `404` or fallback to the React SPA router (`That page wandered off`) because Express routes are defined on specific subpaths (like `/api/auth/login`, `/api/diary`, `/api/shortener`). To hit the API, send requests to specific endpoints like `/api/auth/profile` or `/healthz`.
 
 ---
 
