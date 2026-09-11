@@ -38,44 +38,47 @@ Before diving in, here is what you will need if you want to replicate this deplo
 Before writing code, let us look at the high-level architecture diagram of what we are provisioning on AWS:
 
 ```
-                         ┌──────────────────────┐
-                         │    GitHub Actions    │
-                         └──────────┬───────────┘
-                                    │
-                  ┌─────────────────┴─────────────────┐
-                  │                                   │
-            Frontend deploy                      Backend deploy
-                  │                                   │
-                  ▼                                   ▼
-          ┌───────────────┐                    ┌───────────────┐
-          │      S3       │                    │      ECR      │
-          │ React build   │                    │ Docker image  │
-          └───────┬───────┘                    └───────┬───────┘
-                  │                                    │
-                  ▼                                    │ docker pull
-          ┌───────────────┐                            │
-          │  CloudFront   │                            ▼
-          │  CDN (HTTPS)  │                    ┌───────────────┐
-          └───────┬───────┘                    │      EC2      │
-                  │                            │ Express/Docker│
-                  │                            └───────┬───────┘
-                  │                                    │
-                  │                            ┌───────┴───────┐
-                  │                            │      ASG      │
-                  │                            │  EC2 fleet    │
-                  │                            └───────┬───────┘
-                  │                                    │
-                  │                            ┌───────▼───────┐
-                  └────────────────────────────│      ALB      │
-                                               │ Load Balancer │
-                                               └───────────────┘
-                                                        │
-                                                        ▼
-                                                   Express API
+                               ┌──────────────────────┐
+                               │    GitHub Actions    │
+                               └──────────┬───────────┘
+                                          │
+                        ┌─────────────────┴─────────────────┐
+                        │                                   │
+                  Frontend deploy                      Backend deploy
+                        │                                   │
+                        ▼                                   ▼
+                ┌───────────────┐                    ┌───────────────┐
+                │      S3       │                    │      ECR      │
+                │ React build   │                    │ Docker image  │
+                └───────┬───────┘                    └───────┬───────┘
+                        │                                    │
+                        │                                    │ docker pull
+                        │                                    ▼
+                        │                            ┌───────────────┐
+                        │                            │      EC2      │
+                        │                            │ Express/Docker│
+                        │                            └───────┬───────┘
+                        │                                    │
+                        │                            ┌───────┴───────┐
+                        │                            │      ASG      │
+                        │                            │  EC2 fleet    │
+                        │                            └───────┬───────┘
+                        │                                    │
+                        ▼                            ┌───────▼───────┐
+                ┌───────────────┐                    │      ALB      │
+                │  Route 53 DNS │                    │ Load Balancer │
+                └───────┬───────┘                    └───────▲───────┘
+                        │                                    │
+                        ▼                                    │
+                ┌───────────────┐                            │
+                │  CloudFront   │────────────────────────────┘
+                │  CDN (HTTPS)  │ Path-based routing (/api/*)
+                └───────────────┘
 ```
 
 ### Core Components Explained for Beginners:
 
+- **AWS Route 53**: Highly available DNS service that manages custom domain records (`dev.ideategudy.tech`) and routes client requests directly to CloudFront via A-record Aliases.
 - **Amazon S3**: Hosts the static, compiled single-page React frontend (`dist/` build files) privately.
 - **Amazon CloudFront**: A global Content Delivery Network (CDN) that serves the React app over HTTPS and acts as a single reverse proxy for both client and backend requests.
 - **Amazon ECR (Elastic Container Registry)**: Private Docker image registry to store backend container builds.
@@ -258,8 +261,9 @@ git push origin main
 
 ---
 
-## ⚡ Key Benefits of This Architecture
+## ⚡ Key Benefits & Architectural Trade-Offs
 
+### 🟢 Key Benefits
 Choosing this cloud setup over monolithic single-server hosting provides several high-value production advantages:
 
 1. **🚀 Zero-Downtime & Ultra-Fast Global Delivery**: 
@@ -280,6 +284,29 @@ Choosing this cloud setup over monolithic single-server hosting provides several
    The modular Terraform layout (`vpc`, `backend`, `frontend`, `github_oidc`) makes it effortless to spin up separate `dev`, `staging`, and `production` environments in minutes with zero manual AWS Console clicking.
 
 ---
+
+### ⚠️ Architectural Trade-Offs & Considerations
+
+No cloud architecture is silver bullet. Understanding the trade-offs helps you decide when to choose this pattern over alternatives:
+
+1. **Initial Setup Complexity vs. Single-Server EC2**:
+   - *Trade-off*: Setting up S3, CloudFront OAC, ALB, Target Groups, ACM SSL, and OIDC requires more initial Terraform code than launching a single EC2 instance running Docker Compose + Nginx.
+   - *Mitigation*: The modular Terraform structure (`modules/`) abstracts away this complexity so it only needs to be written once.
+
+2. **Cold Start / Provisioning Time for New EC2 Instances**:
+   - *Trade-off*: When ASG scales up a new instance, the user-data script installs Docker, pulls the image from ECR, and fetches SSM parameters before serving traffic (~2–3 minutes).
+   - *Mitigation*: Setting `api_min_size = 1` ensures at least one instance is always warm and ready. For even faster scaling, custom pre-built AMIs (via Packer) can be used.
+
+3. **CloudFront Cache Invalidation Lag**:
+   - *Trade-off*: Updating the React SPA requires invalidating CloudFront caches (`/*`), which takes ~30–60 seconds to propagate across all edge locations worldwide.
+   - *Mitigation*: Automated in the CI/CD pipeline (`aws cloudfront create-invalidation`) so developers don't have to trigger it manually.
+
+4. **Stateful Session Management (Sticky Sessions)**:
+   - *Trade-off*: Because requests are load-balanced across multiple EC2 instances by the ALB, the backend API must remain **stateless**.
+   - *Mitigation*: Authentication is handled using stateless **JWT tokens** and external **MongoDB** storage rather than in-memory server sessions.
+
+---
+
 
 ## 🎯 Conclusion
 
