@@ -97,6 +97,7 @@ resource "aws_cloudfront_distribution" "app" {
       cached_methods         = ["GET", "HEAD", "OPTIONS"]
       forwarded_values {
         query_string = true
+        headers      = ["Authorization", "Accept", "Content-Type", "Origin", "Referer"]
         cookies { forward = "all" }
       }
       min_ttl     = 0
